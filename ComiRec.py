@@ -7,11 +7,12 @@ from BasicModel import BasicModel, CapsuleNetwork
 
 class ComiRec_DR(BasicModel):
     
-    def __init__(self, item_num, hidden_size, batch_size, interest_num=4, seq_len=50, routing_times=3, relu_layer=False):
+    def __init__(self, item_num, hidden_size, batch_size, interest_num=4, seq_len=50, routing_times=3, relu_layer=False, hard_readout=True):
         super(ComiRec_DR, self).__init__(item_num, hidden_size, batch_size, seq_len)
         self.interest_num = interest_num
         self.routing_times = routing_times
-        self.hard_readout = True
+        #self.hard_readout = True
+        self.hard_readout = hard_readout
         self.capsule_network = CapsuleNetwork(self.hidden_size, self.seq_len, bilinear_type=2, interest_num=self.interest_num, 
                                             routing_times=self.routing_times, hard_readout=self.hard_readout, relu_layer=relu_layer)
         self.reset_parameters()
