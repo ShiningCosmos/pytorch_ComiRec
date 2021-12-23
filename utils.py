@@ -136,7 +136,9 @@ def get_model(dataset, model_type, item_count, batch_size, hidden_size, interest
         relu_layer = True if dataset == 'book' else False
         model = MIND(item_count, hidden_size, batch_size, interest_num, seq_len, routing_times=routing_times, relu_layer=relu_layer)
     elif model_type == 'ComiRec-DR':
-        model = ComiRec_DR(item_count, hidden_size, batch_size, interest_num, seq_len, routing_times=routing_times)
+        relu_layer = False
+        hard_readout = False if dataset == 'kindle' else True
+        model = ComiRec_DR(item_count, hidden_size, batch_size, interest_num, seq_len, routing_times=routing_times, relu_layer=relu_layer, hard_readout=hard_readout)
     elif model_type == 'ComiRec-SA':
         model = ComiRec_SA(item_count, hidden_size, batch_size, interest_num, seq_len, add_pos=True)
     else:
