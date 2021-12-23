@@ -26,24 +26,25 @@ if __name__ == '__main__':
     SEED = args.random_seed
     setup_seed(SEED)
 
-    if args.dataset == 'taobao':
-        path = './data/taobao_data/'
-        item_count = 1708531
-        batch_size = 256
-        seq_len = 50
-        test_iter = 500
-    elif args.dataset == 'book':
+    if args.dataset == 'book':
         path = './data/book_data/'
-        item_count = 367983
+        item_count = 367982 + 1
         batch_size = 128
         seq_len = 20
         test_iter = 1000
     elif args.dataset == 'familyTV':
         path = './data/familyTV_data/'
-        item_count = 867633
+        item_count = 867632 + 1
         batch_size = 256
         seq_len = 30
         test_iter = 1000
+    elif args.dataset == 'kindle':
+        path = './data/kindle_data/'
+        item_count = 260154 + 1
+        batch_size = 128
+        seq_len = 20
+        test_iter = 200
+
     
     train_file = path + args.dataset + '_train.txt'
     valid_file = path + args.dataset + '_valid.txt'
@@ -62,9 +63,9 @@ if __name__ == '__main__':
                 interest_num=args.interest_num, topN=args.topN, max_iter=args.max_iter, test_iter=test_iter, 
                 decay_step=args.lr_dc_step, lr_decay=args.lr_dc, patience=args.patience)
     elif args.p == 'test':
-        test(device=device, test_file=test_file, cate_file=cate_file, dataset=dataset, model_type=args.model_type, item_count=item_count, 
-                batch_size=batch_size, lr=args.learning_rate, seq_len=seq_len, hidden_size=args.hidden_size, 
-                interest_num=args.interest_num, topN=args.topN, coef=args.coef)
+        test(device=device, test_file=test_file, cate_file=cate_file, dataset=dataset, model_type=args.model_type, 
+                item_count=item_count, batch_size=batch_size, lr=args.learning_rate, seq_len=seq_len, 
+                hidden_size=args.hidden_size, interest_num=args.interest_num, topN=args.topN, coef=args.coef)
     elif args.p == 'output':
         output(device=device, dataset=dataset, model_type=args.model_type, item_count=item_count, 
                 batch_size=batch_size, lr=args.learning_rate, seq_len=seq_len, hidden_size=args.hidden_size, 
