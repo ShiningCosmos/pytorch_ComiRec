@@ -111,8 +111,8 @@ def evaluate(model, test_data, hidden_size, device, k=20, coef=None, item_cate_m
 
 
                 # 上述if-else只是为了用不同方式计算得到最后推荐的结果item列表
-                for no, iid in enumerate(item_list_set): # 对于每一个label物品
-                    if iid in iid_list: # 如果该label物品在推荐的物品列表中
+                for no, iid in enumerate(item_list_set): # 对于每一个推荐的物品
+                    if iid in iid_list: # 如果该推荐的物品在label物品列表中
                         recall += 1
                         dcg += 1.0 / math.log(no+2, 2)
                 idcg = 0.0
