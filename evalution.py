@@ -17,10 +17,6 @@ def evaluate(model, test_data, hidden_size, device, k=20, coef=None, item_cate_m
 
     item_embs = model.output_items().cpu().detach().numpy()
 
-    ### GPU无法使用，临时修改成使用CPU ###
-    # gpu_index = faiss.IndexFlatIP(hidden_size)
-    # gpu_index.add(item_embs)
-
     res = faiss.StandardGpuResources() # 使用单个GPU
     flat_config = faiss.GpuIndexFlatConfig()
     flat_config.device = 0 # 使用0号GPU
@@ -42,14 +38,12 @@ def evaluate(model, test_data, hidden_size, device, k=20, coef=None, item_cate_m
     for _, (users, targets, items, mask) in enumerate(test_data): # 一个batch的数据
         
         # 获取用户嵌入
-        # 计算得到user_embs实际上已经走完了整个模型（除了利用label计算loss的部分）
-        # user_embs是模型中的self.user_eb
         # 多兴趣模型，shape=(batch_size, num_interest, embedding_dim)
         # 其他模型，shape=(batch_size, embedding_dim)
         user_embs,_ = model(to_tensor(items, device), None, to_tensor(mask, device), device, train=False)
         user_embs = user_embs.cpu().detach().numpy()
 
-        # 用内积来近邻搜索，实际是内积的值越大，向量越近（越相似）（后面注释中的距离改为相似度会更好理解）
+        # 用内积来近邻搜索，实际是内积的值越大，向量越近（越相似）
         if len(user_embs.shape) == 2: # 非多兴趣模型评估
             D, I = gpu_index.search(user_embs, topN) # Inner Product近邻搜索，D为distance，I是index
             for i, iid_list in enumerate(targets): # 每个用户的label列表，此处item_id为一个二维list，验证和测试是多label的
@@ -63,7 +57,7 @@ def evaluate(model, test_data, hidden_size, device, k=20, coef=None, item_cate_m
                 idcg = 0.0
                 for no in range(recall):
                     idcg += 1.0 / math.log(no+2, 2)
-                total_recall += recall * 1.0 / len(iid_list) # len(iid_list)表示label数量
+                total_recall += recall * 1.0 / len(iid_list)
                 if recall > 0: # recall>0当然表示有命中
                     total_ndcg += dcg / idcg
                     total_hitrate += 1
@@ -78,24 +72,11 @@ def evaluate(model, test_data, hidden_size, device, k=20, coef=None, item_cate_m
                 dcg = 0.0
                 item_list_set = set()
                 item_cor_list = []
-                # # 将num_interest个兴趣向量的所有topN近邻物品（num_interest*topN个物品）集合起来按照距离重新排序
-                # item_list = list(zip(np.reshape(I[i*ni:(i+1)*ni], -1), np.reshape(D[i*ni:(i+1)*ni], -1)))
-                # item_list.sort(key=lambda x:x[1], reverse=True) # 降序排序，内积越大，向量越近
-                # # 这里没有直接选前50，而是一个一个选取
-                # # 原因是可能会有重复物品（一个物品离多个兴趣向量都近，就可能重复）和id为0的物品（id为0的是mask用的）
-                # for j in range(len(item_list)): # 按距离由近到远遍历推荐物品列表，最后选出最近的topN个物品作为最终的推荐物品
-                #     if item_list[j][0] not in item_list_set and item_list[j][0] != 0:
-                #         item_list_set.add(item_list[j][0])
-                #         if len(item_list_set) >= topN:
-                #             break
-
                 
                 if coef is None: # 不考虑物品多样性
                     # 将num_interest个兴趣向量的所有topN近邻物品（num_interest*topN个物品）集合起来按照距离重新排序
                     item_list = list(zip(np.reshape(I[i*ni:(i+1)*ni], -1), np.reshape(D[i*ni:(i+1)*ni], -1)))
                     item_list.sort(key=lambda x:x[1], reverse=True) # 降序排序，内积越大，向量越近
-                    # 这里没有直接选前50，而是一个一个选取
-                    # 原因是可能会有重复物品（一个物品离多个兴趣向量都近，就可能重复）和id为0的物品（id为0的是mask用的）
                     for j in range(len(item_list)): # 按距离由近到远遍历推荐物品列表，最后选出最近的topN个物品作为最终的推荐物品
                         if item_list[j][0] not in item_list_set and item_list[j][0] != 0:
                             item_list_set.add(item_list[j][0])
@@ -113,8 +94,6 @@ def evaluate(model, test_data, hidden_size, device, k=20, coef=None, item_cate_m
                         if x not in tmp_item_set and x in item_cate_map:
                             item_list.append((x, y, item_cate_map[x]))
                             tmp_item_set.add(x)
-                    # defaultdict用key索引时，如果key不存在会返回一个默认值，int类型默认值为0
-                    # cate_dict的key为物品类别，value为
                     cate_dict = defaultdict(int)
                     for j in range(topN): # 选出topN个物品
                         max_index = 0
@@ -174,8 +153,6 @@ def train(device, train_file, valid_file, test_file, dataset, model_type, item_c
 
     model = get_model(dataset, model_type, item_count, batch_size, hidden_size, interest_num, seq_len)
     model = model.to(device)
-    # for idx, m in enumerate(model.modules()):
-    #     print(idx, '->', m)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr = 0.001)
     #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=decay_step, gamma=lr_decay)
@@ -196,10 +173,6 @@ def train(device, train_file, valid_file, test_file, dataset, model_type, item_c
             iter += 1
             optimizer.zero_grad()
             _, scores = model(to_tensor(items, device), to_tensor(targets, device), to_tensor(mask, device), device)
-            # print("scores")
-            # print(scores)
-            # print("targets:")
-            # print(to_tensor(targets, device)-1)
             loss = loss_fn(scores, to_tensor(targets, device))
             loss.backward()
             optimizer.step()
@@ -221,7 +194,6 @@ def train(device, train_file, valid_file, test_file, dataset, model_type, item_c
                     if recall > best_metric:
                         best_metric = recall
                         save_model(model, best_model_path)
-                        #torch.save(model.state_dict(), best_model_path)
                         trials = 0
                     else:
                         trials += 1
@@ -242,7 +214,6 @@ def train(device, train_file, valid_file, test_file, dataset, model_type, item_c
         print('-' * 99)
         print('Exiting from training early')
 
-    #model.load_state_dict(torch.load(best_model_path))
     load_model(model, best_model_path)
     model.eval()
 
@@ -263,7 +234,6 @@ def test(device, test_file, cate_file, dataset, model_type, item_count, batch_si
     best_model_path = "best_model/" + exp_name + '/' # 模型保存路径A
 
     model = get_model(dataset, model_type, item_count, batch_size, hidden_size, interest_num, seq_len)
-    #model.load_state_dict(torch.load(best_model_path))
     load_model(model, best_model_path)
     model = model.to(device)
     model.eval()
@@ -284,7 +254,6 @@ def output(device, dataset, model_type, item_count, batch_size, lr, seq_len,
     best_model_path = "best_model/" + exp_name + '/' # 模型保存路径
     
     model = get_model(dataset, model_type, item_count, batch_size, hidden_size, interest_num, seq_len)
-    #model.load_state_dict(torch.load(best_model_path))
     load_model(model, best_model_path)
     model = model.to(device)
     model.eval()
